@@ -1,47 +1,123 @@
+#include <stdexcept>
 #include <iostream>
+#include <stdlib.h>
+#include <string>
+#include <cctype>
 #include <cstdlib>
-#include "numbers.dat"
 
 using namespace std;
 
-int prime(int x)
+class Calculator
 {
-    if (x == 1) {
-        return 0;
+ public:
+    enum SIGN
+    {
+        PLUS = '+',
+        MIN = '-',
+        DIV = '/',
+        MUL = '*'
+    };
+    string buf = "";
+    int64_t Do (const string& str)
+    {
+        normalize(str);
+        pos = 0;
+        value = Getnum(buf);
+        cur = value;
+        if (str[pos]) {
+            AddSub(buf);
+        }
+        return value;
     }
-    for (int i = 2; i * i <= x; i++) {
-        if (!(x % i)) {
-            return 0;
+ private:
+    int64_t value, cur, pos;
+
+    void normalize(const string& str)
+    {
+        for (int i = 0; i < str.size(); i++) {
+            if (isdigit(str[i]) || str[i] == PLUS || str[i] == MIN || str[i] == MUL ||str[i] == DIV) {
+                buf += str[i];
+            } else if (!isspace(str[i])) {
+                throw invalid_argument("");
+            }
+        }
+        int signs = 0;
+        int64_t bufsize = buf.size();
+        if (bufsize > 2 && !isdigit(buf[0]) && !isdigit(buf[1])) {
+            throw invalid_argument("");
+        }
+        for (int i = 0; i < bufsize; i++) {
+            if (isdigit(buf[i])) {
+                if (signs >= 3) throw invalid_argument("");
+                signs = 0;
+            } else {
+                signs++;
+            }
+        }
+        if (!isdigit(buf[bufsize - 1])) throw invalid_argument("");
+    }
+
+    void MulDiv(int64_t& val, const string& str) {
+        while(str[pos] == MUL || str[pos] == DIV) {
+            int op = str[pos++];
+            int64_t next = Getnum(str);
+            if (op == MUL) {
+                val *= next;
+            } else {
+                if (!next) throw invalid_argument("");
+                val /= next;
+            }
         }
     }
-    return 1;
-}
+    void AddSub(const string& str) {
+        int64_t op = 1;
+        bool first = true;
+        do {
+            if (first && (str[pos] == MUL || str[pos] == DIV)) {
+                first = false;
+                cur = value;
+                while(str[pos] && (str[pos] == MUL || str[pos] == DIV)) {
+                    MulDiv(cur, str);
+                }
+                value += op * cur;
+            } else {
+                if (str[pos++] == '-') {
+                op = -1;
+                } else op = 1;
+                cur = Getnum(buf);
+                while(str[pos] && (str[pos] == MUL || str[pos] == DIV)) {
+                    MulDiv(cur, str);
+                }
+                value += op * cur;
+            }
+        } while(str[pos]);
 
+    }
+    int64_t Getnum(const string& str)
+    {
+        char *last;
+        const char *fst = &str[pos];
+        int64_t res = strtoll(fst, &last, 10);
+        pos += last - fst;
+        return res;
+    }
+
+};
 int main(int argc, char **argv)
 {
-    if (argc < 2 || !(argc & 1)) {
-        return -1;
+    if (argc != 2) {
+        cout << "error"<< endl;
+		return 1;
     }
-    int *buf = (int *)calloc((Data[Size - 1] + 1), sizeof(int));
-    for (int i = 0; i < Size; i++) {
-        buf[Data[i]]++;
+    Calculator calc;
+    try
+    {
+        cout << calc.Do(argv[1]) << endl;
     }
-    for (int i = 1; i < argc; i++) {
-        int left = atoi(argv[i++]), right = atoi(argv[i]);
-        int res = 0;
-        if (left > right) {
-            cout << res << endl;
-            continue;
-        }
-        if (left <= Data[Size - 1] && buf[left] != 0 && right <= Data[Size - 1] && buf[right] != 0) {
-            for (int i = left; i <= right; i++) {
-                if (buf[i] && prime(i)) {
-                    res += buf[i];
-                }
-            }
-            cout << res << endl;
-        }
+    catch(invalid_argument&)
+    {
+        cout << "error" << endl;
+        return 1;
     }
-    free(buf);
     return 0;
 }
